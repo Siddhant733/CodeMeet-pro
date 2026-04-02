@@ -1,93 +1,96 @@
-import { Code2Icon, LoaderIcon, PlusIcon } from "lucide-react";
-import { PROBLEMS } from "../data/problems";
+import { useNavigate } from "react-router";
+import { useUser } from "@clerk/clerk-react";
+import { useState } from "react";
+import toast from "react-hot-toast";
+import { useActiveSessions, useCreateSession, useMyRecentSessions } from "../hooks/useSessions";
 
-function CreateSessionModal({
-  isOpen,
-  onClose,
-  roomConfig,
-  setRoomConfig,
-  onCreateRoom,
-  isCreating,
-}) {
-  const problems = Object.values(PROBLEMS);
+import Navbar from "../components/Navbar";
+import WelcomeSection from "../components/WelcomeSection";
+import StatsCards from "../components/StatsCards";
+import ActiveSessions from "../components/ActiveSessions";
+import RecentSessions from "../components/RecentSessions";
+import CreateSessionModal from "../components/CreateSessionModal";
 
-  if (!isOpen) return null;
+function DashboardPage() {
+  const navigate = useNavigate();
+  const { user } = useUser();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [roomConfig, setRoomConfig] = useState({ problem: "", difficulty: "" });
+
+  const createSessionMutation = useCreateSession();
+
+  const { data: activeSessionsData, isLoading: loadingActiveSessions } = useActiveSessions();
+  const { data: recentSessionsData, isLoading: loadingRecentSessions } = useMyRecentSessions();
+
+  const handleCreateRoom = () => {
+    if (!roomConfig.problem || !roomConfig.difficulty) return;
+
+    createSessionMutation.mutate(
+      {
+        problem: roomConfig.problem,
+        difficulty: roomConfig.difficulty.toLowerCase(),
+      },
+      {
+        onSuccess: (data) => {
+          console.log("createSession response:", data);
+
+          const sessionId = data?.session?._id;
+
+          if (!sessionId) {
+            console.error("Invalid createSession response:", data);
+            toast.error("Session was created, but session ID is missing.");
+            return;
+          }
+
+          setShowCreateModal(false);
+          navigate(`/session/${sessionId}`);
+        },
+      }
+    );
+  };
+
+  const activeSessions = activeSessionsData?.sessions || [];
+  const recentSessions = recentSessionsData?.sessions || [];
+
+  const isUserInSession = (session) => {
+    if (!user?.id) return false;
+
+    return session.host?.clerkId === user.id || session.participant?.clerkId === user.id;
+  };
 
   return (
-    <div className="modal modal-open">
-      <div className="modal-box max-w-2xl">
-        <h3 className="font-bold text-2xl mb-6">Create New Session</h3>
+    <>
+      <div className="min-h-screen bg-base-300">
+        <Navbar />
+        <WelcomeSection onCreateSession={() => setShowCreateModal(true)} />
 
-        <div className="space-y-8">
-          {/* PROBLEM SELECTION */}
-          <div className="space-y-2">
-            <label className="label">
-              <span className="label-text font-semibold">Select Problem</span>
-              <span className="label-text-alt text-error">*</span>
-            </label>
-
-            <select
-              className="select w-full"
-              value={roomConfig.problem}
-              onChange={(e) => {
-                const selectedProblem = problems.find((p) => p.title === e.target.value);
-                setRoomConfig({
-                  difficulty: selectedProblem.difficulty,
-                  problem: e.target.value,
-                });
-              }}
-            >
-              <option value="" disabled>
-                Choose a coding problem...
-              </option>
-
-              {problems.map((problem) => (
-                <option key={problem.id} value={problem.title}>
-                  {problem.title} ({problem.difficulty})
-                </option>
-              ))}
-            </select>
+        <div className="container mx-auto px-6 pb-16">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <StatsCards
+              activeSessionsCount={activeSessions.length}
+              recentSessionsCount={recentSessions.length}
+            />
+            <ActiveSessions
+              sessions={activeSessions}
+              isLoading={loadingActiveSessions}
+              isUserInSession={isUserInSession}
+            />
           </div>
 
-          {/* ROOM SUMMARY */}
-          {roomConfig.problem && (
-            <div className="alert alert-success">
-              <Code2Icon className="size-5" />
-              <div>
-                <p className="font-semibold">Room Summary:</p>
-                <p>
-                  Problem: <span className="font-medium">{roomConfig.problem}</span>
-                </p>
-                <p>
-                  Max Participants: <span className="font-medium">2 (1-on-1 session)</span>
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="modal-action">
-          <button className="btn btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
-
-          <button
-            className="btn btn-primary gap-2"
-            onClick={onCreateRoom}
-            disabled={isCreating || !roomConfig.problem}
-          >
-            {isCreating ? (
-              <LoaderIcon className="size-5 animate-spin" />
-            ) : (
-              <PlusIcon className="size-5" />
-            )}
-
-            {isCreating ? "Creating..." : "Create"}
-          </button>
+          <RecentSessions sessions={recentSessions} isLoading={loadingRecentSessions} />
         </div>
       </div>
-      <div className="modal-backdrop" onClick={onClose}></div>
-    </div>
+
+      <CreateSessionModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        roomConfig={roomConfig}
+        setRoomConfig={setRoomConfig}
+        onCreateRoom={handleCreateRoom}
+        isCreating={createSessionMutation.isPending}
+      />
+    </>
   );
 }
-export default CreateSessionModal;
+
+export default DashboardPage;
