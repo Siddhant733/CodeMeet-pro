@@ -4,11 +4,6 @@ const LANGUAGE_VERSIONS = {
   java: { language: "java", version: "15.0.2" },
 };
 
-/**
- * Temporary production-safe version.
- * Direct public Piston API call is returning 401,
- * so disable remote execution until a backend execute route is added.
- */
 export async function executeCode(language, code) {
   try {
     const languageConfig = LANGUAGE_VERSIONS[language];
