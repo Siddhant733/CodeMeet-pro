@@ -1,6 +1,6 @@
 // Piston API is a service for code execution
 
-const PISTON_API = "https://emkc.org/api/v2/piston";
+const PISTON_API = "https://emkc.org/api/v2";
 
 const LANGUAGE_VERSIONS = {
   javascript: { language: "javascript", version: "18.15.0" },
@@ -9,11 +9,13 @@ const LANGUAGE_VERSIONS = {
 };
 
 /**
+ * Execute code using Piston API
  * @param {string} language - programming language
- * @param {string} code - source code to executed
- * @returns {Promise<{success:boolean, output?:string, error?: string}>}
+ * @param {string} code - source code to execute
+ * @param {string} input - optional stdin input
+ * @returns {Promise<{success:boolean, output?:string, error?:string}>}
  */
-export async function executeCode(language, code) {
+export async function executeCode(language, code, input = "") {
   try {
     const languageConfig = LANGUAGE_VERSIONS[language];
 
@@ -38,25 +40,26 @@ export async function executeCode(language, code) {
             content: code,
           },
         ],
+        stdin: input,
       }),
     });
+
+    const data = await response.json();
 
     if (!response.ok) {
       return {
         success: false,
-        error: `HTTP error! status: ${response.status}`,
+        error: data?.message || `HTTP error! status: ${response.status}`,
       };
     }
 
-    const data = await response.json();
-
-    const output = data.run.output || "";
-    const stderr = data.run.stderr || "";
+    const output = data?.run?.output || "";
+    const stderr = data?.run?.stderr || "";
 
     if (stderr) {
       return {
         success: false,
-        output: output,
+        output,
         error: stderr,
       };
     }
@@ -82,3 +85,5 @@ function getFileExtension(language) {
 
   return extensions[language] || "txt";
 }
+
+export { LANGUAGE_VERSIONS };
