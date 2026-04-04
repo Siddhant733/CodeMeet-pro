@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router";
 import { useUser } from "@clerk/clerk-react";
 import { useState } from "react";
-import toast from "react-hot-toast";
 import { useActiveSessions, useCreateSession, useMyRecentSessions } from "../hooks/useSessions";
 
 import Navbar from "../components/Navbar";
@@ -32,18 +31,8 @@ function DashboardPage() {
       },
       {
         onSuccess: (data) => {
-          console.log("createSession response:", data);
-
-          const sessionId = data?.session?._id;
-
-          if (!sessionId) {
-            console.error("Invalid createSession response:", data);
-            toast.error("Session was created, but session ID is missing.");
-            return;
-          }
-
           setShowCreateModal(false);
-          navigate(`/session/${sessionId}`);
+          navigate(`/session/${data.session._id}`);
         },
       }
     );
@@ -53,7 +42,7 @@ function DashboardPage() {
   const recentSessions = recentSessionsData?.sessions || [];
 
   const isUserInSession = (session) => {
-    if (!user?.id) return false;
+    if (!user.id) return false;
 
     return session.host?.clerkId === user.id || session.participant?.clerkId === user.id;
   };
@@ -64,6 +53,7 @@ function DashboardPage() {
         <Navbar />
         <WelcomeSection onCreateSession={() => setShowCreateModal(true)} />
 
+        {/* Grid layout */}
         <div className="container mx-auto px-6 pb-16">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <StatsCards
