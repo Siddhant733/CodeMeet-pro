@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage";
 import ProblemPage from "./pages/ProblemPage";
 import ProblemsPage from "./pages/ProblemsPage";
 import SessionPage from "./pages/SessionPage";
+import "./lib/setupAxios";
 
 function App() {
   const { isSignedIn, isLoaded } = useUser();
