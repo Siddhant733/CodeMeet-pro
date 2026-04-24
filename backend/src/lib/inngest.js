@@ -7,20 +7,29 @@ export const inngest = new Inngest({ id: "talent-iq" });
 
 const syncUser = inngest.createFunction(
   { id: "sync-user" },
-  { event: "clerk/user.created" },
+  { event: "webhook/request.received" },
   async ({ event }) => {
     await connectDB();
 
-    const { id, email_addresses, first_name, last_name, image_url } = event.data;
+    const webhookEvent = event.data?.data;
+
+    if (webhookEvent?.type !== "user.created") return;
+
+    const { id, email_addresses, first_name, last_name, image_url } =
+      webhookEvent.data;
 
     const newUser = {
       clerkId: id,
-      email: email_addresses[0]?.email_address,
-      name: `${first_name || ""} ${last_name || ""}`,
+      email: email_addresses?.[0]?.email_address,
+      name: `${first_name || ""} ${last_name || ""}`.trim(),
       profileImage: image_url,
     };
 
-    await User.create(newUser);
+    await User.findOneAndUpdate(
+      { clerkId: id },
+      newUser,
+      { upsert: true, new: true }
+    );
 
     await upsertStreamUser({
       id: newUser.clerkId.toString(),
@@ -32,13 +41,17 @@ const syncUser = inngest.createFunction(
 
 const deleteUserFromDB = inngest.createFunction(
   { id: "delete-user-from-db" },
-  { event: "clerk/user.deleted" },
+  { event: "webhook/request.received" },
   async ({ event }) => {
     await connectDB();
 
-    const { id } = event.data;
-    await User.deleteOne({ clerkId: id });
+    const webhookEvent = event.data?.data;
 
+    if (webhookEvent?.type !== "user.deleted") return;
+
+    const { id } = webhookEvent.data;
+
+    await User.deleteOne({ clerkId: id });
     await deleteStreamUser(id.toString());
   }
 );
